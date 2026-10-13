@@ -1,0 +1,93 @@
+# Trail Camera Analyzer — local stack (DESIGN §6, NFR-10).
+#
+#   docker compose up --build        # db, migrate (one-shot), api, worker, web
+#   open http://localhost:5173       # web UI;  http://localhost:8000/api/v1/docs for the API
+#
+# GPU for the worker (from M2):  docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+name: trailcam
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  image: trailcam-backend:dev
+  env_file:
+    - path: .env
+      required: false
+  environment: &backend-env
+    TRAILCAM_DATABASE_URL: postgresql+psycopg://trailcam:trailcam@db:5432/trailcam
+    TRAILCAM_MEDIA_ROOTS: /media
+    TRAILCAM_CACHE_DIR: /cache
+    TRAILCAM_BACKUP_DIR: /backups
+  volumes:
+    # Source media is mounted READ-ONLY: the app can never modify it (FR-ING-5, NFR-4).
+    - ${TRAILCAM_MEDIA_HOST_DIR:-./.media-empty}:/media:ro
+    - cache:/cache
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: docker/db/Dockerfile
+    image: trailcam-db:dev
+    environment:
+      POSTGRES_USER: trailcam
+      POSTGRES_PASSWORD: trailcam
+      POSTGRES_DB: trailcam
+    ports:
+      - "${TRAILCAM_DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trailcam -d trailcam"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["trailcam-migrate"]
+    volumes:
+      - ./backups:/backups
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *backend
+    ports:
+      - "${TRAILCAM_API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    <<: *backend
+    command: ["trailcam-worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true  # the image's healthcheck probes the API; the worker has no port
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: trailcam-web:dev
+    ports:
+      - "${TRAILCAM_WEB_PORT:-5173}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  cache:

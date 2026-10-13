@@ -1,0 +1,99 @@
+# CI (DESIGN §16.3, M0): lint, types, tests, API-client drift, licenses, compose smoke test.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      TRAILCAM_TEST_DATABASE_URL: postgresql+psycopg://trailcam:trailcam@localhost:5432/trailcam_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start PostgreSQL (PostGIS + pgvector)
+        working-directory: .
+        run: docker compose up -d --build --wait db
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Ruff
+        run: |
+          uv run ruff check . && uv run ruff format --check .
+          uv run ruff check --config pyproject.toml ../scripts && uv run ruff format --check --config pyproject.toml ../scripts
+      - name: Mypy (strict on core/)
+        run: uv run mypy && uv run mypy tests ../scripts
+      - name: Pytest (unit + integration)
+        run: uv run pytest --cov --cov-report=term
+      - name: Coverage gate on core/ (NFR-9)
+        run: uv run coverage report --include='src/trailcam/core/*' --fail-under=80
+      - name: License check (NFR-7)
+        run: uv run python ../scripts/check_licenses.py
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  api-client:
+    name: api-client drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: uv sync --frozen --project backend
+      - run: pnpm --dir apps/web install --frozen-lockfile
+      - name: Generated client matches the API
+        run: pnpm --dir apps/web check:api
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    needs: [backend, web]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the stack
+        run: docker compose up -d --build
+      - name: Smoke test through the web proxy
+        run: python3 scripts/smoke_test.py --base http://localhost:5173 --timeout 180
+      - name: Seed is idempotent
+        run: |
+          docker compose exec -T api python /app/scripts/dev_seed.py
+          docker compose exec -T api python /app/scripts/dev_seed.py
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

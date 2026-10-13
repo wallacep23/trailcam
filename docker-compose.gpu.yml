@@ -1,0 +1,11 @@
+# Give the worker the NVIDIA GPU (needs Docker Desktop with WSL2 + a current NVIDIA driver).
+# Not needed until M2 (detection); M0 runs on CPU.
+services:
+  worker:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -1,0 +1,22 @@
+# pre-commit install   (runs the fast checks before each commit)
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(backend|scripts)/
+      - id: ruff-format
+        files: ^(backend|scripts)/
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+        exclude: ^apps/web/tsconfig
+      - id: end-of-file-fixer
+        exclude: ^apps/web/src/api/
+      - id: trailing-whitespace
+        exclude: ^apps/web/src/api/
+      - id: check-added-large-files
+        args: [--maxkb=2000]

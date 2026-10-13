@@ -1,0 +1,15 @@
+# Model registry (DESIGN §6, NFR-6, NFR-7).
+#
+# Every model that the shipped pipeline loads MUST be listed here, with its license, BEFORE first
+# use. `scripts/check_licenses.py` (run in CI) fails unless each license is MIT, Apache-2.0 or BSD.
+# Weights live in models/weights/ (gitignored) and are fetched/verified by scripts/get_models.py (M2).
+#
+# Entry format:
+#   - name: megadetector           # stable identifier used in produced_by
+#     version: "6.0.0-mit"          # bump => pipeline re-run for affected stages
+#     file: weights/md_v6_mit.onnx
+#     sha256: "<64 hex chars>"
+#     license: MIT
+#     source: https://github.com/microsoft/MegaDetector
+#     notes: optional free text
+models: []

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# App data (never commit media, caches, backups or weights)
+.env
+.trailcam-cache/
+.trailcam-backups/
+backups/*
+!backups/.gitkeep
+.media-empty/*
+!.media-empty/.gitkeep
+models/weights/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

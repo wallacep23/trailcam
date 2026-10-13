@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Night-first palette (DESIGN §14: dark theme by default; used pre-dawn). */
+@theme {
+  --color-bark-950: #0d1011;
+  --color-bark-900: #14181a;
+  --color-bark-850: #1a1f22;
+  --color-bark-800: #222a2d;
+  --color-bark-700: #2f393d;
+  --color-bark-500: #5d6b70;
+  --color-bark-300: #a3b0b4;
+  --color-bark-100: #e3e8e9;
+  --color-lamp-400: #f0b65a;
+  --color-lamp-500: #e8a23a;
+  --color-lamp-600: #c9831f;
+  --color-moss-400: #7fbf8e;
+  --color-ember-400: #ef7d6b;
+  --color-sky-400: #7fb2d9;
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bark-950 font-sans text-bark-100 antialiased;
+}
+
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-lamp-500;
+}

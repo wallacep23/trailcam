@@ -1,0 +1,1 @@
+"""Trail Camera Analyzer backend."""
